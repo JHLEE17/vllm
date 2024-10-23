@@ -8,7 +8,7 @@ from vllm.lora.request import LoRARequest
 
 from .conftest import cleanup
 
-MODEL_PATH = "meta-llama/Llama-2-7b-hf"
+MODEL_PATH = "/home/work/.model_ssd/Llama-2-7b-hf"
 
 
 def do_sample(llm: vllm.LLM, lora_path: str, lora_id: int) -> List[str]:

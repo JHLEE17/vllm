@@ -1,0 +1,3 @@
+#! /bin/bash
+# python3 -m vllm.entrypoints.openai.api_server --port 9000 --disable-frontend-multiprocessing --model /home/work/.models/Meta-Llama-3-8B-Instruct --max-model-len 2048 --gpu-memory-utilization 0.9 --max-num-seqs 256 --disable-log-requests
+python3 -m vllm.entrypoints.openai.api_server --port 9000 --disable-frontend-multiprocessing --model /home/work/.models/Meta-Llama-3.1-70B-Instruct --max-model-len 8192 --gpu-memory-utilization 0.6 --max-num-seqs 256 --disable-log-requests -tp 8

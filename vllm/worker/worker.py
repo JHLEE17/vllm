@@ -28,6 +28,7 @@ from vllm.worker.embedding_model_runner import EmbeddingModelRunner
 from vllm.worker.enc_dec_model_runner import EncoderDecoderModelRunner
 from vllm.worker.model_runner import GPUModelRunnerBase, ModelRunner
 from vllm.worker.worker_base import LocalOrDistributedWorkerBase, WorkerInput
+import GPUtil
 
 logger = init_logger(__name__)
 
@@ -168,7 +169,11 @@ class Worker(LocalOrDistributedWorkerBase):
             _check_if_gpu_supports_dtype(self.model_config.dtype)
             gc.collect()
             torch.cuda.empty_cache()
-            self.init_gpu_memory = torch.cuda.mem_get_info()[0]
+            # self.init_gpu_memory = torch.cuda.mem_get_info()[0]
+            # self.init_gpu_memory = torch.cuda.mem_get_info()[0] - 527499264*4
+            gpus = GPUtil.getGPUs()
+            visible_gpu = gpus[int(os.environ["CUDA_VISIBLE_DEVICES"][0])]
+            self.init_gpu_memory = visible_gpu.memoryFree
         else:
             raise RuntimeError(
                 f"Not support device type: {self.device_config.device}")
@@ -225,10 +230,17 @@ class Worker(LocalOrDistributedWorkerBase):
         # Calculate the number of blocks that can be allocated with the
         # profiled peak memory.
         torch.cuda.synchronize()
-        free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
+        # free_gpu_memory, total_gpu_memory = torch.cuda.mem_get_info()
+        # _, total_gpu_memory = torch.cuda.mem_get_info()
+        # free_gpu_memory = total_gpu_memory - 527499264*4
+        gpus = GPUtil.getGPUs()
+        visible_gpu = gpus[int(os.environ["CUDA_VISIBLE_DEVICES"][0])]
+        free_gpu_memory, total_gpu_memory = visible_gpu.memoryFree, visible_gpu.memoryTotal
+
         # NOTE(woosuk): Here we assume that the other processes using the same
         # GPU did not change their memory usage during the profiling.
         peak_memory = self.init_gpu_memory - free_gpu_memory
+        # import pdb; pdb.set_trace()
         assert peak_memory > 0, (
             "Error in memory profiling. "
             f"Initial free memory {self.init_gpu_memory}, current free memory"
