@@ -16,6 +16,7 @@ from vllm.sampling_params import (LogitsProcessor, RequestOutputKind,
                                   SamplingParams)
 from vllm.sequence import Logprob
 from vllm.transformers_utils.tokenizer import AnyTokenizer
+from vllm.sequence import RequestMetrics
 from vllm.utils import random_uuid
 
 # torch is mocked during docs generation,
@@ -659,6 +660,8 @@ class CompletionResponse(OpenAIBaseModel):
     model: str
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
+    metrics: List[RequestMetrics]
+    # mean_running_bs: List[float]
 
 
 class CompletionResponseStreamChoice(OpenAIBaseModel):

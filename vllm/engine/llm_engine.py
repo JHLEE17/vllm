@@ -464,6 +464,15 @@ class LLMEngine:
                 ),
             ))
 
+        # For logging mean running batchsize
+        # self.decode_iter = 0
+        # self.mean_running_bs = 0
+        # self.last_running = 0
+
+        # Iteration information
+        self.num_iteration: int = 0
+        self.batch_sizes: list[tuple[str, int]] = []
+
     def _initialize_kv_caches(self) -> None:
         """Initialize the KV cache in the worker(s).
 
@@ -887,6 +896,13 @@ class LLMEngine:
         return sum(scheduler.get_num_unfinished_seq_groups()
                    for scheduler in self.scheduler)
 
+    def get_iteration_data(self) -> tuple[int, list[tuple[str, int]]]:
+        return self.num_iteration, self.batch_sizes
+
+    def clear_iteration_data(self) -> None:
+        self.num_iteration = 0
+        self.batch_sizes.clear()
+
     def has_unfinished_requests(self) -> bool:
         """Returns True if there are unfinished requests."""
         return any(scheduler.has_unfinished_seqs()
@@ -1086,6 +1102,17 @@ class LLMEngine:
                 seq_group, use_cache=self.use_cached_outputs)
             if request_output:
                 ctx.request_outputs.append(request_output)
+        
+        # if len(seq_group_metadata_list) > 0:
+        #     is_decode = not seq_group_metadata_list[0].is_prompt
+        #     if is_decode:
+        #         self.mean_running_bs = (self.decode_iter * self.mean_running_bs + self.last_running) / (self.decode_iter + 1)
+        #         self.decode_iter += 1
+        # # Current self.scheduler.running corresponds to
+        # # the running states after finishing current iteration.
+        # # So, get the last running states to get current effective batch size.
+        # assert len(self.scheduler) == 1
+        # self.last_running = len(self.scheduler[0].running)
 
         # Immediately process request outputs here (if callback is given)
         if (ctx.request_outputs
@@ -1105,6 +1132,13 @@ class LLMEngine:
             self.do_tracing(scheduler_outputs)
 
         return None
+
+    # def reset_running_bs(self):
+    #     mean_running_bs = self.mean_running_bs
+    #     self.decode_iter = 0
+    #     self.mean_running_bs = 0
+    #     self.last_running = 0
+    #     return mean_running_bs
 
     def _advance_to_next_step(
             self, output: List[SamplerOutput],
@@ -1231,8 +1265,15 @@ class LLMEngine:
                     virtual_engine, seq_group_metadata_list, scheduler_outputs,
                     allow_async_output_proc)
 
-        assert seq_group_metadata_list is not None
+        assert seq_group_metadata_list is not NotImplemented
         assert scheduler_outputs is not None
+
+        # log iteration data
+        if len(seq_group_metadata_list):
+            self.num_iteration += 1
+            self.batch_sizes.append(('p' if seq_group_metadata_list[0].is_prompt else 'd', len(seq_group_metadata_list)))
+            #print([data.is_prompt for data in seq_group_metadata_list])
+            # print(len(seq_group_metadata_list), scheduler_outputs.running_queue_size, self.scheduler[virtual_engine].running)
 
         if not scheduler_outputs.is_empty():
             finished_requests_ids = self.scheduler[

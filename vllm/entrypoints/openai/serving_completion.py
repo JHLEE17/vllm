@@ -108,7 +108,7 @@ class OpenAIServingCompletion(OpenAIServing):
                 prompt_adapter_request,
             ) = self._maybe_get_adapters(request)
 
-            tokenizer = await self.engine_client.get_tokenizer(lora_request)
+            tokenizer = await self.engine_client.get_tokenizer(lora_request=None)
 
             guided_decode_logits_processor = (
                 await self._guided_decode_logits_processor(request, tokenizer))
@@ -460,6 +460,8 @@ class OpenAIServingCompletion(OpenAIServing):
             model=model_name,
             choices=choices,
             usage=usage,
+            metrics=[final_res.metrics for final_res in final_res_batch],
+            # mean_running_bs=[final_res.running_bs for final_res in final_res_batch]
         )
 
     def _create_completion_logprobs(

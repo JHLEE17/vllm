@@ -15,7 +15,7 @@ from vllm.model_executor.guided_decoding.guided_fields import (
     GuidedDecodingRequest)
 from vllm.model_executor.guided_decoding.outlines_logits_processors import (
     CFGLogitsProcessor, JSONLogitsProcessor, RegexLogitsProcessor)
-
+import time
 
 class GuidedDecodingMode(Enum):
     JSON = "json"
@@ -65,6 +65,7 @@ async def get_outlines_guided_decoding_logits_processor(
     We cache logit processors by (guide, tokenizer), and on cache hit
     we make a shallow copy to reuse the same underlying FSM.
     """
+    tic = time.time()
     global global_thread_pool
     guide, mode = _get_guide_and_mode(request)
     if not guide or not mode:
@@ -74,7 +75,8 @@ async def get_outlines_guided_decoding_logits_processor(
         global_thread_pool = concurrent.futures.ThreadPoolExecutor(
             max_workers=2)
     loop = asyncio.get_running_loop()
-
+    toc = time.time()
+    print(f"get_outlines_guided_decoding_logits_processor: {toc-tic}s")
     return await loop.run_in_executor(global_thread_pool,
                                       _get_logits_processor, guide, tokenizer,
                                       mode, request.guided_whitespace_pattern)

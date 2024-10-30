@@ -21,9 +21,6 @@ from functools import lru_cache
 from typing import Callable, DefaultDict, Dict, List, Union
 
 import torch
-from lark import Lark
-from outlines import grammars
-from outlines.caching import cache
 from outlines.fsm.guide import CFGGuide, Generate, Guide, RegexGuide, Write
 from outlines.fsm.json_schema import build_regex_from_schema
 from pydantic import BaseModel
@@ -46,30 +43,13 @@ class BaseLogitsProcessor:
             last_seq_id = hash(tuple(input_ids[:-1]))
             self._fsm_state[seq_id] = self._guide.get_next_state(
                 state=self._fsm_state[last_seq_id], token_id=last_token)
-        else:
-            # Note: this is a hack.
-            # Lark pickling does not work properly (silent failure),
-            # which breaks the RPC (which uses python pickleing).
-            # We need to find a better solution.
-            # On the first time this is called, we simply re-create
-            # the Lark object.
-            if isinstance(self._guide, CFGGuide):
-                self._guide.parser = Lark(
-                    self._guide.cfg_string,
-                    parser="lalr",
-                    lexer="contextual",
-                    propagate_positions=False,
-                    maybe_placeholders=False,
-                    regex=True,
-                    import_paths=[grammars.GRAMMAR_PATH],
-                )
 
         instruction = self._guide.get_next_instruction(
             state=self._fsm_state[seq_id])
 
-        if type(instruction) == Generate:  # noqa: E721
+        if type(instruction) == Generate:
             allowed_tokens = instruction.tokens
-        elif type(instruction) == Write:  # noqa: E721
+        elif type(instruction) == Write:
             # TODO: support fast forward tokens
             allowed_tokens = [instruction.tokens[0]]
         else:
@@ -87,7 +67,6 @@ class BaseLogitsProcessor:
 class RegexLogitsProcessor(BaseLogitsProcessor):
 
     @classmethod
-    # @cache()
     @lru_cache(maxsize=32)
     def _get_guide(cls, regex_string: str,
                    tokenizer: PreTrainedTokenizerBase) -> Guide:
@@ -105,11 +84,11 @@ class RegexLogitsProcessor(BaseLogitsProcessor):
             The model's tokenizer
 
         """
-        # tic = time.time()
+        tic = time.time()
         super().__init__(
             RegexLogitsProcessor._get_guide(regex_string, tokenizer))
-        # toc = time.time()
-        # print(f"RegexLogitsProcessor._get_guide(regex_string, tokenizer)): {toc-tic}s")
+        toc = time.time()
+        print(f"RegexLogitsProcessor._get_guide(regex_string, tokenizer)): {toc-tic}s")
 
 
 class JSONLogitsProcessor(RegexLogitsProcessor):
@@ -143,17 +122,13 @@ class JSONLogitsProcessor(RegexLogitsProcessor):
                 f"Cannot parse schema {schema}. The schema must be either "
                 f"a Pydantic object, a dictionary or a string that contains "
                 f"the JSON Schema specification")
-        # tic = time.time()
         regex_string = build_regex_from_schema(schema_str, whitespace_pattern)
-        # toc = time.time()
-        # print(f"JSONLogitsProcessor.build_regex_from_schema(schema_str, whitespace_pattern): {toc-tic}s")
         super().__init__(regex_string, tokenizer)
 
 
 class CFGLogitsProcessor(BaseLogitsProcessor):
 
     @classmethod
-    # @cache()
     @lru_cache(maxsize=32)
     def _get_guide(cls, cfg: str, tokenizer: PreTrainedTokenizerBase) -> Guide:
         tokenizer = _adapt_tokenizer(tokenizer)

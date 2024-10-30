@@ -1,0 +1,15 @@
+Namespace(host='localhost', port=8002, tokenizer='/home/jovyan/vol-1/models/Meta-Llama-3.1-8B-Instruct', dataset='/home/jovyan/vol-1/datasets/dynamic_sonnet_llama3/dynamic_sonnet_llama_3_prefix_256_max_1024_1024_sampled.parquet', num_requests=1024, max_input_len=1024, max_output_len=1, max_num_seqs=256, csv_path='None', prefix_caching=True, warmup=False, request_rate=inf, seed=0, json_template=None, lora_pattern=[], random_lora=False, mimic_throughput_sample=False)
+SUMMARY
+	# requests: 1024
+	Total input tokens: 523895
+	Total generated tokens: 1024
+	Total latency: 37.55247097834945 sec
+	Mean running batchsize: 0.0
+TTFT
+	median: 109.36594009399414 msec
+	mean: 114.3909553065896 msec
+	max: 229.82478141784668 msec
+TPOT
+	median: 0.54168701171875 msec
+	mean: 0.5645679775625467 msec
+	max: 1.3692378997802734 msec

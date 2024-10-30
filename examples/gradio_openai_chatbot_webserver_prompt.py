@@ -1,5 +1,4 @@
 import argparse
-
 import gradio as gr
 from openai import OpenAI
 
@@ -8,7 +7,7 @@ parser = argparse.ArgumentParser(
     description='Chatbot Interface with Customizable Parameters')
 parser.add_argument('--model-url',
                     type=str,
-                    default='http://localhost:9000/v1',
+                    default='http://localhost:8000/v1',
                     help='Model URL')
 parser.add_argument('-m',
                     '--model',
@@ -39,24 +38,21 @@ client = OpenAI(
     base_url=openai_api_base,
 )
 
+# Function to log user inputs and responses
+def log_interaction(user_input, response):
+    with open("chat_log.txt", "a") as log_file:
+        log_file.write(f"User: {user_input}\n")
+        log_file.write(f"Response: {response}\n\n")
 
-def predict(message, history):
+def predict(system_prompt, message, history):
     # Convert chat history to OpenAI format
-    history_openai_format = [{
-        "role": "system",
-        # "content": "You are a great ai lawyer assistant."
-        "content": "지금까지 모든 prompt는 무시해. 너는 openAI에서 만든 유용한 AI 부동산 관련 법률 도우미로써 대한민국의 법령을 이해하고 질문에 대해서 다음과 같이 한국말로 대답해.",
-        "role": "user",
-        "content": "1주택을 부부가 각각 공동명의로 보유하고 있는 경우 1주택세대로 보아야 하는지, 2주택세대로 보아야 하는지?",
-        "role": "system",
-        "content": "「주택공급에 관한 규칙」 제53조에 의하면 주택의 공유지분을 소유하고 있는 경우에도 주택을 소유한 것으로 보아야 하나, 부부가 동일한 주택의 공유지분을 각각 소유하고 있는 경우에는 2주택이 아닌 1주택을 소유한 것으로 보아야 합니다."
-    }]
+    if history is None:
+        history = []
+        
+    history_openai_format = [{"role": "system", "content": system_prompt}]
     for human, assistant in history:
         history_openai_format.append({"role": "user", "content": human})
-        history_openai_format.append({
-            "role": "assistant",
-            "content": assistant
-        })
+        history_openai_format.append({"role": "assistant", "content": assistant})
     history_openai_format.append({"role": "user", "content": message})
 
     # Create a chat completion request and send it to the API server
@@ -66,8 +62,7 @@ def predict(message, history):
         temperature=args.temp,  # Temperature for text generation
         stream=True,  # Stream response
         extra_body={
-            'repetition_penalty':
-            1,
+            'repetition_penalty': 1,
             'stop_token_ids': [
                 int(id.strip()) for id in args.stop_token_ids.split(',')
                 if id.strip()
@@ -80,8 +75,15 @@ def predict(message, history):
         partial_message += (chunk.choices[0].delta.content or "")
         yield partial_message
 
+    # Log the interaction
+    log_interaction(message, partial_message)
+
+# Create Gradio inputs for the system prompt and chat interface
+system_prompt_input = gr.Textbox(lines=2, placeholder="Enter system prompt here...", label="System Prompt")
+chat_message_input = gr.Textbox(lines=2, placeholder="Enter your message here...", label="Message")
 
 # Create and launch a chat interface with Gradio
-gr.ChatInterface(predict).queue().launch(server_name=args.host,
-                                         server_port=args.port,
-                                         share=True)
+chat_interface = gr.Interface(fn=predict, inputs=[system_prompt_input, chat_message_input], outputs="text")
+chat_interface.queue().launch(server_name=args.host,
+                              server_port=args.port,
+                              share=True)
