@@ -4,7 +4,7 @@ import enum
 from abc import ABC, abstractmethod
 from array import array
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property, reduce
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional
 from typing import Sequence as GenericSequence
@@ -119,6 +119,7 @@ class RequestMetrics:
     scheduler_time: Optional[float] = None
     model_forward_time: Optional[float] = None
     model_execute_time: Optional[float] = None
+    token_timestamps: List[float] = field(default_factory=list)
 
 
 class SequenceDataDelta(

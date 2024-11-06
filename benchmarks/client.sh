@@ -2,9 +2,10 @@
 # Default values
 port=8000
 max_input_len=1024
+max_out_len=1024
 model=Meta-Llama-3.1-8B-Instruct
 # model=Meta-Llama-3-8B-Instruct
-csv_path=/home/jovyan/vol-1/jh/sqzb/gaudi/benchmark_vllm_v062_1028/
+csv_path=/home/jovyan/vol-1/jh/sqzb/gaudi/benchmark_vllm_v062_1030/
 guided_json_template=/home/jovyan/vol-1/jh/sqzb/gaudi/vllm/benchmarks/guided_json_template.json
 num_requests=1024
 sleep_time=30
@@ -29,6 +30,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --port) port="$2"; shift ;;
         --max-input-len) max_input_len="$2"; shift ;;
+        --max-out-len) max_out_len="$2"; shift ;;
         --num-requests) num_requests="$2"; shift ;;
         --concurrency) concurrency="$2"; shift ;;
         --decode) decode=true ;;
@@ -58,9 +60,9 @@ mkdir -p $csv_path
 # Function to run a specific benchmark
 run_benchmark() {
     local num_requests=$1
-    local max_output_len=$2
+    local max_output_len_local=$2
 
-    cmd="$cmd_base --max-output-len $max_output_len --num-requests $num_requests"
+    cmd="$cmd_base --max-output-len $max_output_len_local --num-requests $num_requests"
 
     # Conditionally add concurrency option if it's a valid integer
     if [[ "$concurrency" =~ ^[0-9]+$ ]]; then
@@ -102,6 +104,6 @@ if [[ "$prefill" == "true" ]]; then
 fi  
 
 if [[ "$decode" == "true" ]]; then
-    run_benchmark 10 10
-    run_benchmark $num_requests 1024
+    # run_benchmark 10 10
+    run_benchmark $num_requests $max_out_len
 fi

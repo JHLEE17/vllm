@@ -304,6 +304,59 @@ async def async_request_openai_completions(
         pbar.update(1)
     return output
 
+async def async_request_non_stream_openai_completions(
+    request_func_input: RequestFuncInput,
+    pbar: Optional[tqdm] = None,
+) -> RequestFuncOutput:
+    api_url = request_func_input.api_url
+    assert api_url.endswith(
+        ("completions", "profile")
+    ), "OpenAI Completions API URL must end with 'completions' or 'profile'."
+    async with aiohttp.ClientSession(timeout=AIOHTTP_TIMEOUT) as session:
+        payload = {
+            "model": request_func_input.model,
+            "prompt": request_func_input.prompt,
+            "temperature": 0.0,
+            "best_of": request_func_input.best_of,
+            "max_tokens": request_func_input.output_len,
+            "logprobs": request_func_input.logprobs,
+            "stream": False,
+            "ignore_eos": request_func_input.ignore_eos,
+        }
+        headers = {
+            "Authorization": f"Bearer {os.environ.get('OPENAI_API_KEY')}"
+        }
+        output = RequestFuncOutput()
+        output.prompt_len = request_func_input.prompt_len
+        generated_text = ""
+        st = time.perf_counter()
+        try:
+            async with session.post(url=api_url, json=payload,
+                                    headers=headers) as response:
+                if response.status == 200:
+                    data = response.json()
+                    latency = time.perf_counter() - st
+                    generated_text = data["choices"][0]["text"]
+                    
+                    metrics = data["metric"]
+                    ttft = metrics.first_token_time - metrics.arrival_time
+                    token_timestamps = metrics.token_timestamps
+                    
+                    output.ttft = ttft
+                    output.itl = token_timestamps
+                    output.generated_text = generated_text
+                    output.success = True
+                    output.latency = latency
+                else:
+                    output.error = response.reason or ""
+                    output.success = False
+        except Exception:
+            output.success = False
+            exc_info = sys.exc_info()
+            output.error = "".join(traceback.format_exception(*exc_info))
+    if pbar:
+        pbar.update(1)
+    return output
 
 async def async_request_openai_chat_completions(
     request_func_input: RequestFuncInput,
@@ -433,4 +486,5 @@ ASYNC_REQUEST_FUNCS = {
     "openai-chat": async_request_openai_chat_completions,
     "tensorrt-llm": async_request_trt_llm,
     "scalellm": async_request_openai_completions,
+    "vllm_token_timestamp": async_request_non_stream_openai_completions
 }

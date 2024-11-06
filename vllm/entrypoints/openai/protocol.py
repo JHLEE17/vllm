@@ -14,7 +14,7 @@ from vllm.entrypoints.openai.logits_processors import get_logits_processors
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import (LogitsProcessor, RequestOutputKind,
                                   SamplingParams)
-from vllm.sequence import Logprob
+from vllm.sequence import Logprob, RequestMetrics
 from vllm.transformers_utils.tokenizer import AnyTokenizer
 from vllm.sequence import RequestMetrics
 from vllm.utils import random_uuid
@@ -661,7 +661,7 @@ class CompletionResponse(OpenAIBaseModel):
     choices: List[CompletionResponseChoice]
     usage: UsageInfo
     metrics: List[RequestMetrics]
-    # mean_running_bs: List[float]
+    
 
 
 class CompletionResponseStreamChoice(OpenAIBaseModel):

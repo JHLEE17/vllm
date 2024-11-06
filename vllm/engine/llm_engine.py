@@ -991,6 +991,7 @@ class LLMEngine:
             scheduled_seq_group = scheduler_outputs.scheduled_seq_groups[i]
 
             seq_group = scheduled_seq_group.seq_group
+            seq_group.metrics.token_timestamps.append(now)
 
             if seq_group.is_finished():
                 finished_before.append(i)

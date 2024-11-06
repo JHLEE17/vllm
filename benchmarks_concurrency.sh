@@ -1,70 +1,27 @@
 #!/bin/bash
+port=8000
+model_name=Meta-Llama-3.1-8B-Instruct
+csv_path=/home/jovyan/vol-1/jh/sqzb/gaudi/benchmark_vllm_v062_1106/
+max_input_len=1024
 
-# Usage:
-# ./benchmarks_script.sh [GPU] [PORT]
-# Example:
-# ./benchmarks_script.sh 0 8000
-
-# Get GPU and Port from command-line arguments
-GPU=0
-PORT=8000
-
-# Parse input arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --gpu) GPU="$2"; shift ;;
-        --port) PORT="$2"; shift ;;
+        --port) port="$2"; shift ;;
+        --max-input-len) max_input_len="$2"; shift ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
 done
 
-# Array of concurrency values from 128 to 16, decrementing by 16
-concurrency_values=(16)
+concurrency_values=(128 128 112 96 80 64 48 32 16 32 16 4 1)
 
-# Loop through each concurrency value and execute the command
 for concurrency in "${concurrency_values[@]}"; do
-  bash benchmarks_script.sh \
-    --max-input-len 1024 \
-    --feature original \
-    --prefill \
-    --concurrency "$concurrency" \
-    --gpu "$GPU" --port "$PORT"
+    python benchmarks/benchmark_sqzb.py \
+    --tokenizer /home/jovyan/vol-1/models/Meta-Llama-3.1-8B-Instruct \
+    --num-requests 512 \
+    --max-input-len $max_input_len \
+    --max-output-len 1024 \
+    --port $port \
+    --concurrency $concurrency \
+    --csv-path $csv_path
 done
-
-# concurrency_values=(128 112 96 80 64 48 32 16)
-
-# # Loop through each concurrency value and execute the command
-# for concurrency in "${concurrency_values[@]}"; do
-#   bash benchmarks_script.sh \
-#     --max-input-len 2048 \
-#     --feature original \
-#     --prefill \
-#     --concurrency "$concurrency" \
-#     --gpu "$GPU" --port "$PORT"
-# done
-
-# concurrency_values=(128 112 96 80 64 48 32 16)
-
-# # Loop through each concurrency value and execute the command
-# for concurrency in "${concurrency_values[@]}"; do
-#   bash benchmarks_script.sh \
-#     --max-input-len 4096 \
-#     --feature original \
-#     --prefill \
-#     --concurrency "$concurrency" \
-#     --gpu "$GPU" --port "$PORT"
-# done
-
-
-# concurrency_values=(128 112 96 80 64 48 32 16)
-
-# # Loop through each concurrency value and execute the command
-# for concurrency in "${concurrency_values[@]}"; do
-#   bash benchmarks_script.sh \
-#     --max-input-len 8192 \
-#     --feature original \
-#     --prefill \
-#     --concurrency "$concurrency" \
-#     --gpu "$GPU" --port "$PORT"
-# done

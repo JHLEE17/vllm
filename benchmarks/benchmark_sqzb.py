@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import torch
 import tqdm
-import os
+import os, csv
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 
@@ -32,7 +32,7 @@ class RequestResult():
     finished_time: float
     waiting_time: float
     client_side_total_latency: float
-    # mean_running_bs: float # TODO: fix this
+    time_stamp: str
 
 
 REQUESTS: List[Callable[[], Awaitable[RAW_RESULT]]] = []
@@ -193,7 +193,7 @@ def parse_raw_data(raw_data: RAW_RESULT) -> RequestResult:
         finished_time=response["metrics"][0]["finished_time"],
         waiting_time=response["metrics"][0]["time_in_queue"],
         client_side_total_latency=request_latency,
-        # mean_running_bs=response["mean_running_bs"][0]
+        time_stamp=response["metrics"][0]["token_timestamps"],
     )
 
     return parsed
@@ -236,7 +236,7 @@ def main(args: argparse.Namespace):
     print(args)
     random.seed(args.seed)
     np.random.seed(args.seed)
-    
+
     url = f"http://{args.host}:{args.port}"
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     stop_token_ids = []
@@ -280,6 +280,11 @@ def main(args: argparse.Namespace):
     results = [parse_raw_data(raw) for raw in raw_results]
     df = pd.DataFrame(data=results)
 
+    min_value = min([lst[0] for lst in df['time_stamp']])
+    time_stamps = df['time_stamp'].apply(lambda x: [i - min_value for i in x]).tolist()
+
+
+
     total_input_tokens = df['num_input_tokens'].sum()
     total_generated_tokens = df['num_generated_tokens'].sum()
     print("SUMMARY")
@@ -306,20 +311,19 @@ def main(args: argparse.Namespace):
     print(f"\tmean: {tpot.mean()} msec")
     print(f"\tmax: {tpot.max()} msec")  
 
-    out_path = model_id.strip("/").split("/")[-1]
-    out_path += f"_qps_{args.request_rate}"
-    out_path += f"_total_{benchmark_duration}"
-    out_path += f"_in_{total_input_tokens}"
-    # out_path += f"_out_{total_generated_tokens}"
-    out_path += "_LoRA" if args.lora_pattern else ""
-    out_path += "_guided" if args.json_template else ""
-    out_path += f"_conc_{args.concurrency}" if args.concurrency else ""
-    out_path += f"_{args.dataset.split('/')[-1]}" if args.dataset else "_random"
-    out_path += f"_{args.num_requests}"
-    out_path += ".pkl"
+    # out_path = model_id.strip("/").split("/")[-1]
+    # out_path += f"_qps_{args.request_rate}"
+    # out_path += f"_total_{benchmark_duration}"
+    # out_path += f"_in_{total_input_tokens}"
+    # # out_path += f"_out_{total_generated_tokens}"
+    # out_path += "_LoRA" if args.lora_pattern else ""
+    # out_path += "_guided" if args.json_template else ""
+    # out_path += f"_conc_{args.concurrency}" if args.concurrency else ""
+    # out_path += f"_{args.dataset.split('/')[-1]}" if args.dataset else "_random"
+    # out_path += f"_{args.num_requests}"
+    # out_path += ".pkl"
     
-    df.to_pickle(out_path)
-
+    # df.to_pickle(out_path)
     if args.csv_path:
         # Save summary statistics to CSV
         csv_path = args.csv_path
@@ -331,21 +335,27 @@ def main(args: argparse.Namespace):
         csv_path += f"_max_seqs{args.max_num_seqs}"
         csv_path += "_Pr" if args.max_output_len == 1 else "_De"
         csv_path += f"_conc{args.concurrency}" if args.concurrency else ""
+        csv_path_timestamp = csv_path + "_time_stamp.csv"
         csv_path += ".csv"
         csv_path = get_unique_filepath(csv_path)
+        csv_path_timestamp = get_unique_filepath(csv_path_timestamp)
         summary_data = {
             "Metric": ["# requests", "Total input tokens", "Total generated tokens", "Total latency (msec)", "Mean batch size",
                     "TTFT median (msec)", "TTFT mean (msec)", "TTFT max (msec)", 
-                    "TPOT median (msec)", "TPOT mean (msec)", "TPOT max (msec)"],
+                    "TPOT median (msec)", "TPOT mean (msec)", "TPOT max (msec)",],
             "Value": [args.num_requests, total_input_tokens, total_generated_tokens, f"{benchmark_duration*1000}", mean_bs,
                     f"{ttft.median():3f}", f"{ttft.mean():3f}", f"{ttft.max():3f}",
-                    f"{tpot.median():3f}", f"{tpot.mean():3f}", f"{tpot.max():3f}"]
+                    f"{tpot.median():3f}", f"{tpot.mean():3f}", f"{tpot.max():3f}",]
         }
         
         summary_df = pd.DataFrame(summary_data)
-
         # Save directly to the specified CSV path without additional path manipulation
         summary_df.to_csv(csv_path, index=False)
+
+        with open(csv_path_timestamp, mode="w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerows(time_stamps)
+        
 
 def parse_lora_pattern(value):
     parts = value.split(',')
